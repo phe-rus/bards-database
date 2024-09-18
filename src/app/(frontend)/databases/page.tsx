@@ -3,7 +3,7 @@
 import { Themer } from "@/app/components/themes/themer";
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/components/ui/avatar";
 import { Button } from "@/app/components/ui/button";
-import { Card, CardContent } from "@/app/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/app/components/ui/tooltip";
 import { toast } from "@/app/hooks/use-toast";
 import { ImageIcon, LucideDatabaseZap, Server, Users2Icon } from "lucide-react";
@@ -14,6 +14,9 @@ import { Authentication } from "./components/authentication";
 import { Projects } from "./components/projects";
 import { useSearchParams } from "next/navigation";
 import { Database } from "./components/database";
+import { Input } from "@/app/components/ui/input";
+import { Checkbox } from "@/app/components/ui/checkbox";
+import { Textarea } from "@/app/components/ui/textarea";
 
 export default function Dashboard() {
     const [selectedDatabase, setSelectedDatabase] = useState('')
@@ -28,11 +31,13 @@ export default function Dashboard() {
         indexes: number;
     }[]>();
 
+    const [profile, setProfile] = useState('')
     const [collections, setCollections] = useState<any[]>()
     const searchParams = useSearchParams()
     const params = searchParams.get('bards')
 
     useEffect(() => {
+        handleProfile()
         handledatabaseList()
         if (localStorage.getItem('project')) {
             const project = localStorage.getItem('project')!
@@ -89,6 +94,29 @@ export default function Dashboard() {
         const result = await response.json();
         if (response.ok) {
             setCollections(result)
+        } else {
+            toast({
+                title: 'Error',
+                description: result.msg
+            });
+        }
+    };
+
+    const handleProfile = async () => {
+        const token = localStorage.getItem('token');
+
+        const response = await fetch('/api/auth/profile', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            setProfile(result)
         } else {
             toast({
                 title: 'Error',
@@ -169,7 +197,8 @@ export default function Dashboard() {
 
                 <nav className="mt-auto flex flex-col items-center gap-3 px-2 sm:py-4">
                     <Themer />
-                    <Avatar className="size-9 md:size-8">
+                    <Avatar className="size-9 md:size-8 hover:cursor-pointer"
+                        onClick={() => handleParams('profile')}>
                         <AvatarImage src="https://github.com/shadcn.png" />
                         <AvatarFallback>CN</AvatarFallback>
                     </Avatar>
@@ -226,6 +255,81 @@ export default function Dashboard() {
                         <Database collections={collections} />
                     ) : params?.includes('storage') ? (
                         <></>
+                    ) : params?.includes('profile') ? (
+                        <section className="flex flex-1 flex-col gap-4">
+                            <div className="mx-auto grid w-full max-w-6xl gap-2">
+                                <h1 className="text-3xl font-semibold">Profile</h1>
+                            </div>
+                            <div className="mx-auto grid w-full max-w-6xl items-start gap-6 md:grid-cols-[180px_1fr] lg:grid-cols-[250px_1fr]">
+                                <nav
+                                    className="grid gap-4 text-sm text-muted-foreground" x-chunk="dashboard-04-chunk-0"
+                                >
+                                    <Link href="#" className="font-semibold text-primary">
+                                        General
+                                    </Link>
+                                    <Link href="#">Security</Link>
+                                    <Link href="#">Integrations</Link>
+                                    <Link href="#">Support</Link>
+                                    <Link href="#">Organizations</Link>
+                                    <Link href="#">Advanced</Link>
+                                </nav>
+                                <div className="grid gap-6">
+                                    <Card x-chunk="dashboard-04-chunk-1">
+                                        <CardHeader>
+                                            <CardTitle>Profile details</CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <form className="flex flex-col gap-2">
+                                                <Input
+                                                    placeholder="User name"
+                                                    value={profile?.name}
+                                                />
+                                                <Input
+                                                    placeholder="Email Address"
+                                                    value={profile?.email}
+                                                />
+                                                <Textarea
+                                                    placeholder="User name"
+                                                    value={profile?.bio}
+                                                />
+                                            </form>
+                                        </CardContent>
+                                        <CardFooter className="border-t px-6 py-4">
+                                            <Button>Save</Button>
+                                        </CardFooter>
+                                    </Card>
+                                    <Card x-chunk="dashboard-04-chunk-2">
+                                        <CardHeader>
+                                            <CardTitle>Plugins Directory</CardTitle>
+                                            <CardDescription>
+                                                The directory within your project, in which your plugins are
+                                                located.
+                                            </CardDescription>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <form className="flex flex-col gap-4">
+                                                <Input
+                                                    placeholder="Project Name"
+                                                    defaultValue="/content/plugins"
+                                                />
+                                                <div className="flex items-center space-x-2">
+                                                    <Checkbox id="include" defaultChecked />
+                                                    <label
+                                                        htmlFor="include"
+                                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                                    >
+                                                        Allow administrators to change the directory.
+                                                    </label>
+                                                </div>
+                                            </form>
+                                        </CardContent>
+                                        <CardFooter className="border-t px-6 py-4">
+                                            <Button>Save</Button>
+                                        </CardFooter>
+                                    </Card>
+                                </div>
+                            </div>
+                        </section>
                     ) : (
                         <Projects
                             listdatabases={listdatabases}

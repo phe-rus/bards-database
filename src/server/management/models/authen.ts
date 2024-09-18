@@ -123,7 +123,13 @@ router.get('/profile', async (req, res) => {
         }
 
         // Respond with user details
-        res.status(200).json({ email: user.email, uid: user._id });
+        res.status(200).json({
+            email: user.email,
+            uid: user._id,
+            name: user.name,
+            bio: user.bio,
+            profilePicture: user.profilePicture,
+        });
     } catch (error) {
         console.error('Token verification error:', error);
         if (error instanceof jwt.TokenExpiredError) {
