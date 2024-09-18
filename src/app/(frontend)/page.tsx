@@ -1,101 +1,131 @@
-import Image from "next/image";
+'use client'
+
+import { useEffect, useState } from "react";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { toast } from "../hooks/use-toast";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [mongoUrl, setMongoUrl] = useState('');
+  const route = useRouter()
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  useEffect(() => {
+    const storedEmail = localStorage.getItem('email');
+
+    if (storedEmail) {
+      handleGetUrl(storedEmail);     // Fetch URL if email is present
+    } else {
+      handleProfile();               // Fetch profile if no email found
+    }
+  }, []);  // Empty dependency array means this runs once when the component mounts
+
+  const handleProfile = async () => {
+    const token = localStorage.getItem('token');
+
+    const response = await fetch('/api/auth/profile', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+    });
+
+    const result = await response.json();
+
+    if (response.ok && result.email) {
+      const emailResult = result.email;
+      localStorage.setItem('email', emailResult);  // Store email in localStorage
+    } else {
+      toast({
+        title: 'Error',
+        description: result.msg
+      });
+    }
+  };
+
+  const handleGetUrl = async (email: string) => {
+    const response = await fetch('/api/dbs/geturl', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email }),
+    });
+    const result = await response.json();
+    if (response.ok) {
+      setMongoUrl(result.mongoUrl);
+      localStorage.setItem('mongoUrl', result.mongoUrl);
+      toast({
+        title: 'Success',
+        description: result.msg
+      })
+    } else {
+      toast({
+        title: 'Error',
+        description: result.msg
+      });
+    }
+  };
+
+  const handleMongoUrl = async () => {
+    const email = localStorage.getItem('email');
+    const response = await fetch('/api/dbs/add-address', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ mongoUrl, email }),
+    });
+
+    const result = await response.json();
+
+    if (response.ok) {
+      toast({
+        title: 'Success',
+        description: result.msg
+      });
+      route.push('/databases')
+    } else {
+      toast({
+        title: 'Error',
+        description: result.msg
+      });
+    }
+  };
+
+  const handleContinue = async () => {
+    route.push('/databases')
+  }
+
+  return (
+    <section className="container flex flex-col h-screen max-w-full w-full justify-center items-center">
+      <div className="flex flex-col gap-5 max-w-md w-full">
+        <Input
+          placeholder="Input your MongoDB address here"
+          className="max-w-full w-full h-12 rounded-[10px] px-5"
+          value={mongoUrl}
+          onChange={(e) => setMongoUrl(e.target.value)}
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            size={'lg'}
+            variant={'default'}
+            className="h-[3.0rem] rounded-full"
+            onClick={handleMongoUrl}
           >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            Deploy
+          </Button>
+          <Button
+            size={'lg'}
+            variant={'ghost'}
+            className="h-[3.0rem] rounded-full bg-muted"
+            onClick={handleContinue}
           >
-            Read our docs
-          </a>
+            Continue to bards
+          </Button>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </div>
+    </section>
   );
 }

@@ -3,8 +3,11 @@ import next from 'next';
 import { parse } from 'url';
 import session from 'express-session';
 import passport from 'passport';
-import authRoutes from './management/routes/authRoutes';
-import connectDB from './management/config/db';
+import dotenv from 'dotenv';
+import client from './management/config/db';
+import authen from './management/models/authen';
+import mongobase from './management/models/mongobase';
+dotenv.config();
 
 const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev });
@@ -14,22 +17,22 @@ const port = process.env.PORT || 3000;
 app.prepare().then(() => {
   const server = express();
 
-  connectDB();
+  client.connect();
 
   server.use(express.json());
   server.use(express.urlencoded({ extended: true }));
   server.use(session({
-    secret: 'secret',
+    secret: process.env.JWT_SECRET!,
     resave: false,
     saveUninitialized: true,
   }));
   server.use(passport.initialize());
   server.use(passport.session());
 
-  server.use('/api/auth', authRoutes);
+  server.use('/api/auth', authen);
+  server.use('/api/dbs', mongobase)
 
   server.get('/api/status', (req, res) => {
-    // this should return server status and mongodb status
     res.status(200).json({ status: 'ok' });
   })
 

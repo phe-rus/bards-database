@@ -1,190 +1,176 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Label } from '../ui/label';
-import { Input } from '../ui/input';
-import Link from 'next/link';
 import { Button } from '../ui/button';
-import { useToast } from '@/app/hooks/use-toast';
+import { FieldText } from '../compose';
+import { toast } from '@/app/hooks/use-toast';
+import { jwtDecode } from 'jwt-decode'; // Make sure to install this package
 
 type LoginWrapperProps = {
     children: React.ReactNode;
 };
 
 const LoginWrapper = ({ children }: LoginWrapperProps) => {
+    const [createAccount, setCreateAccount] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [token, setToken] = useState<string | null>(null);
-    const [error, setError] = useState<string | null>(null);
-    const [isRegistering, setIsRegistering] = useState(false);
-    const { toast } = useToast();
 
-    useEffect(() => {
-        const savedToken = localStorage.getItem('authToken');
-        if (savedToken) {
-            setToken(savedToken);
-        }
-    }, []);
-
-    useEffect(() => {
-        if (token) {
-            localStorage.setItem('authToken', token);
-        } else {
-            localStorage.removeItem('authToken');
-        }
-    }, [token]);
-
-    useEffect(() => {
-        // errors
-        if (error) {
-            toast({
-                title: "Error",
-                description: error,
-                variant: 'destructive', // Or any other variant that you have
-            });
-        }
-    }, [error, toast]);
-
-    const handleRegister = async () => {
+    // Helper function to check if a token is expired
+    const isTokenExpired = (token: string) => {
         try {
-            const response = await fetch('/api/auth/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password }),
-            });
-            const result = await response.json();
-            if (response.ok) {
-                toast({
-                    title: "Registration successful",
-                    description: result.msg || 'User registered successfully',
-                });
-                setIsRegistering(false); // Switch to login after successful registration
-            } else {
-                setError(result.message || 'Registration failed');
-            }
-        } catch (err) {
-            setError('An error occurred during registration');
-            console.error(err);
+            const decoded: any = jwtDecode(token);
+            const currentTime = Date.now() / 1000;
+            return decoded.exp < currentTime;
+        } catch (error) {
+            return true;
         }
     };
 
-    const handleLogin = async () => {
-        try {
-            const response = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password }),
+    // Log the user out if the token is expired
+    const handleTokenExpiration = () => {
+        if (token && isTokenExpired(token)) {
+            localStorage.removeItem('token');
+            setToken(null);
+            toast({
+                title: 'Session expired',
+                description: 'Your session has expired. Please log in again.',
             });
-            const result = await response.json();
-            if (response.ok) {
-                toast({
-                    title: "Login successful",
-                    description: 'Successfully logged in'
-                });
-                setToken(result.token);
-                setError(null);
-            } else {
-                setError(result.message || 'Login failed');
-                setToken(null);
-            }
-        } catch (err) {
-            setError('An error occurred during login');
-            console.error(err);
+        }
+    };
+
+    useEffect(() => {
+        const localToken = localStorage.getItem('token');
+        if (localToken) {
+            setToken(localToken);
+        }
+
+        // Check token expiration every minute
+        const interval = setInterval(() => {
+            handleTokenExpiration();
+        }, 60000); // 60 seconds
+
+        // Cleanup the interval on unmount
+        return () => clearInterval(interval);
+    }, [token]);
+
+    const handleLogin = async () => {
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email, password })
+        });
+        const result = await response.json();
+        if (response.ok) {
+            localStorage.setItem('token', result.token);
+            setToken(result.token);
+            toast({
+                title: 'Successfully',
+                description: result.msg,
+            });
+        } else {
+            console.error(result.msg);
+            toast({
+                title: 'Error',
+                description: result.msg,
+            });
+        }
+    };
+
+    const handleCreateAccount = async () => {
+        if (password !== confirmPassword) {
+            alert('Passwords do not match');
+            return;
+        }
+        const response = await fetch('/api/auth/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email, password })
+        });
+        const result = await response.json();
+        if (response.ok) {
+            setCreateAccount(false);
+            toast({
+                title: 'Successfully',
+                description: result.msg,
+            });
+        } else {
+            console.error(result.msg);
+            toast({
+                title: 'Error',
+                description: result.msg,
+            });
         }
     };
 
     if (token) {
         return <>{children}</>;
-    }
+    } else {
+        return (
+            <section className="container flex flex-col max-w-full w-full h-screen justify-center">
+                <div className="flex flex-col gap-3 mx-auto max-w-sm w-full rounded-sm">
+                    <Label className={'text-6xl font-light'}>Bards database</Label>
+                    <FieldText
+                        label='Email'
+                        type='email'
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                    />
 
-    // If not logged in, render login/register form
-    return (
-        <section className="flex flex-col max-w-full w-full h-screen justify-center">
-            <Card className="mx-auto max-w-sm w-full rounded-sm">
-                <CardHeader>
-                    <CardTitle className="text-2xl">{isRegistering ? 'Register' : 'Login'}</CardTitle>
-                    <CardDescription>
-                        {isRegistering
-                            ? 'Enter your email below to create a new account'
-                            : 'Enter your email below to login to your account'}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <form
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                            isRegistering ? handleRegister() : handleLogin();
-                        }}
-                        className="grid gap-4"
-                    >
-                        <div className="grid gap-2">
-                            <Label htmlFor="email">Email</Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                placeholder="m@example.com"
-                                required
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <div className="flex items-center">
-                                <Label htmlFor="password">Password</Label>
-                                {!isRegistering && (
-                                    <Link href="#" className="ml-auto inline-block text-sm underline">
-                                        Forgot your password?
-                                    </Link>
-                                )}
-                            </div>
-                            <Input
-                                id="password"
-                                type="password"
-                                required
+                    {!createAccount ? (
+                        <FieldText
+                            label='Password'
+                            type='password'
+                            placeholder='******'
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                        />
+                    ) : (
+                        <div className='flex flex-col gap-1'>
+                            <FieldText
+                                label='Password'
+                                type='password'
+                                placeholder='******'
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                             />
+                            <FieldText
+                                label='Confirm Password'
+                                type='password'
+                                placeholder='******'
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                            />
                         </div>
+                    )}
+
+                    <div className="flex w-full max-w-full justify-end">
                         <Button
-                            type="submit"
-                            className="w-full"
+                            size={'sm'}
+                            variant={'link'}
+                            onClick={() => setCreateAccount(!createAccount)}
                         >
-                            {isRegistering ? 'Register' : 'Login'}
+                            {createAccount ? 'Login' : 'Create Account'}
                         </Button>
-                        {error && <p className="mt-2 text-red-500">{error}</p>}
-                    </form>
-                    <div className="mt-4 text-center text-sm">
-                        {isRegistering ? (
-                            <>
-                                Already have an account?{" "}
-                                <Button
-                                    size="sm"
-                                    variant="link"
-                                    className="underline"
-                                    onClick={() => setIsRegistering(false)}
-                                >
-                                    Login
-                                </Button>
-                            </>
-                        ) : (
-                            <>
-                                Don&apos;t have an account?{" "}
-                                <Button
-                                    size="sm"
-                                    variant="link"
-                                    className="underline"
-                                    onClick={() => setIsRegistering(true)}
-                                >
-                                    Sign up
-                                </Button>
-                            </>
-                        )}
                     </div>
-                </CardContent>
-            </Card>
-        </section>
-    );
+
+                    <Button
+                        type="submit"
+                        className="w-full rounded-none"
+                        onClick={createAccount ? handleCreateAccount : handleLogin}
+                    >
+                        {createAccount ? 'Sign Up' : 'Login'}
+                    </Button>
+                </div>
+            </section>
+        );
+    }
 };
 
 export default LoginWrapper;
