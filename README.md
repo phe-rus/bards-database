@@ -63,13 +63,3 @@ is based on the [Contributor Covenant](https://pherus.org/contributors-covenant)
 ### License
 
 Distributed under the Developers Parley License. See `LICENSE` for more information.
-
-### Acknowledgments
-
-We would like to thank the following people for their contributions to this project:
-
-const contributors = await getContributors();
-const contributorList = contributors.map(contributor => contributor.login);
-const contributorString = contributorList.join(', ');
-console.log(`Special thanks to ${contributorString} for their contributions!`);
-// end automatically get the contributors git accounts
