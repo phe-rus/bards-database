@@ -7,6 +7,8 @@ import dotenv from 'dotenv';
 import client from './management/config/db';
 import authen from './management/models/authen';
 import mongobase from './management/models/mongobase';
+import path from 'path';
+import storage from './management/models/storage';
 dotenv.config();
 
 const dev = process.env.NODE_ENV !== 'production';
@@ -25,12 +27,17 @@ app.prepare().then(() => {
     secret: process.env.JWT_SECRET!,
     resave: false,
     saveUninitialized: true,
+    cookie: { secure: true }
   }));
   server.use(passport.initialize());
   server.use(passport.session());
 
+
   server.use('/api/auth', authen);
   server.use('/api/dbs', mongobase)
+  // upload path from public folder
+  server.use('/uploads', express.static(path.join(__dirname, 'public')))
+  server.use('/api/uploads', storage)
 
   server.get('/api/status', (req, res) => {
     res.status(200).json({ status: 'ok' });

@@ -45,7 +45,7 @@ router.post('/create', async (req, res) => {
             password: hashedPassword,
             createdAt: new Date(),
             updatedAt: new Date()
-        };
+        }
         if (username) {
             userData.username = username;
         }
@@ -99,7 +99,7 @@ router.post('/login', async (req, res) => {
     }
 });
 
-router.get('/profile', async (req, res) => {
+router.post('/profile', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ msg: 'No token provided or incorrect format' });
@@ -142,5 +142,60 @@ router.get('/profile', async (req, res) => {
     }
 });
 
+router.put('/update', async (req, res) => {
+    const { key, value } = req.body;
+    const authHeader = req.headers.authorization;
+
+    // Check for authorization header
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ msg: 'No token provided or incorrect format' });
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    try {
+        // Connect to database
+        const clientConnection = await client.connect();
+        const db = clientConnection.db('bards-database');
+        const collection = db.collection('users');
+
+        // Verify the token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as jwt.JwtPayload;
+        const userId = decoded.id;
+
+        // Find the user
+        const user = await collection.findOne({ _id: new ObjectId(userId) });
+        if (!user) {
+            return res.status(404).json({ msg: 'User not found' });
+        }
+
+        // Update the user profile
+        const updateResult = await collection.updateOne(
+            { _id: new ObjectId(userId) },
+            { $set: { [key]: value } }
+        );
+
+        if (updateResult.modifiedCount === 0) {
+            return res.status(400).json({ msg: 'No changes made to the user profile' });
+        }
+
+        // Generate a new token
+        const newToken = jwt.sign({ id: userId }, process.env.JWT_SECRET!, {
+            expiresIn: '1h',
+        });
+
+        res.json({ token: newToken });
+
+    } catch (error) {
+        console.error('Token verification or update error:', error);
+        if (error instanceof jwt.TokenExpiredError) {
+            return res.status(401).json({ msg: 'Token expired' });
+        } else if (error instanceof jwt.JsonWebTokenError) {
+            return res.status(401).json({ msg: 'Invalid token' });
+        } else {
+            return res.status(500).json({ msg: 'Server error' });
+        }
+    }
+});
 
 export default router;
